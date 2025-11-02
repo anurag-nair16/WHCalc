@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat & Personal Calculator</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkNoYXQgJiBQZXJzb25hbCBDYWxjdWxhdG9yIiwKICAic2hvcnRfbmFtZSI6ICJDYWxjdWxhdG9yIiwKICAiaWNvbnMiOiBbCiAgICB7CiAgICAgICJzcmMiOiAiaHR0cHM6Ly9wbGFjZWhvbGQuY28vMTkyeDE5Mi84YjViYjkvZmZmP3RleHQ9Q2FsYyIsCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIsCiAgICAgICJzaXplcyI6ICIxOTJ4MTkyIgogICAgfSwKICAgIHsKICAgICAgInNyYyI6ICJodHRwczovL3BsYWNlaG9sZC5jby81MTJ4NTEyLzgxNGFhYy9mZmY/dGV4dD1DYWxjdWxhdG9yIiwKICAgICAgInR5cGUiOiAiaW1hZ2UvcG5nIiwKICAgICAgInNpemVzIjogIjUxMng1MTIiCiAgICB9CiAgXSwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiMxMTExMWIiLAogICJ0aGVtZV9jb2xvciI6ICIjODFhYWFjIgogIH0=">
+
+    <style>
+        /* Inter font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Custom modal styles */
+        .modal-overlay {
+            display: none; /* Hidden by default */
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .modal-overlay.show {
+            display: flex;
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-content {
+            background: #27272a; /* dark:bg-zinc-800 */
+            color: #f4f4f5; /* dark:text-zinc-100 */
+            padding: 1.5rem; /* p-6 */
+            border-radius: 0.5rem; /* rounded-lg */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
+            width: 90%;
+            max-width: 400px;
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        .modal-overlay.show .modal-content {
+            transform: scale(1);
+        }
+
+        /* Custom loader */
+        .loader {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #818cf8; /* Indigo */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Hide scrollbar for textarea */
+        textarea::-webkit-scrollbar {
+            display: none;
+        }
+        textarea {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
+        /* Active/Inactive Tab */
+        .tab-btn.active {
+            background-color: #4f46e5; /* indigo-600 */
+            color: #ffffff;
+        }
+        .tab-btn:not(.active) {
+            background-color: #3f3f46; /* zinc-700 */
+            color: #d4d4d8; /* zinc-300 */
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen antialiased">
+
+    <div class="container mx-auto max-w-2xl p-4">
+        <h1 class="text-3xl font-bold text-center mb-6 text-indigo-500">App Toolkit</h1>
+
+        <!-- Tab Buttons -->
+        <div class="mb-6 flex rounded-lg shadow-md overflow-hidden">
+            <button id="tab-btn-wa" class="tab-btn active w-1/2 p-3 font-semibold text-sm transition-colors duration-200">
+                WhatsApp Calculator
+            </button>
+            <button id="tab-btn-personal" class="tab-btn w-1/2 p-3 font-semibold text-sm transition-colors duration-200">
+                Personal Tracker
+            </button>
+        </div>
+
+        <!-- === WhatsApp Calculator Tab === -->
+        <div id="tab-content-wa" class="tab-content active space-y-4">
+            <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg shadow hidden">
+                <label for="apiKey" class="block text-sm font-medium mb-2">API Key</label>
+                <input type="password" id="apiKey" class="w-full p-2 border border-gray-300 dark:border-zinc-700 rounded-md bg-gray-50 dark:bg-zinc-900" placeholder="Enter your API Key (e.g., OpenRouter)">
+                <button id="saveApiKey" class="mt-2 w-full bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">
+                    Save Key
+                </button>
+            </div>
+
+            <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg shadow">
+                <label for="chatInput" class="block text-sm font-medium mb-2">Paste WhatsApp Chat Export</label>
+                <textarea id="chatInput" rows="10" class="w-full p-2 border border-gray-300 dark:border-zinc-700 rounded-md bg-gray-50 dark:bg-zinc-900" placeholder="Paste your exported chat text here..."></textarea>
+                <button id="processChat" class="mt-2 w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-md transition-colors duration-200">
+                    Process Chat
+                </button>
+            </div>
+
+            <!-- Results -->
+            <div id="wa-results" class="bg-white dark:bg-zinc-800 p-4 rounded-lg shadow hidden space-y-4">
+                <div id="loader" class="flex flex-col items-center justify-center py-4 hidden">
+                    <div class="loader"></div>
+                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Analyzing chat... this may take a moment.</p>
+                </div>
+                
+                <div id="results-content">
+                    <h3 class="text-xl font-semibold mb-2">Analysis Results</h3>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center bg-gray-100 dark:bg-zinc-900 p-3 rounded-md">
+                            <span class="font-medium">Total Amount:</span>
+                            <span id="total-amount" class="font-bold text-green-500 text-lg"></span>
+                        </div>
+                        <div class="flex justify-between items-center bg-gray-100 dark:bg-zinc-900 p-3 rounded-md">
+                            <span class="font-medium">Total Contributors:</span>
+                            <span id="total-people" class="font-bold text-indigo-400 text-lg"></span>
+                        </div>
+                    </div>
+                    
+                    <h4 class="text-lg font-semibold mt-4 mb-2">Breakdown:</h4>
+                    <ul id="people-list" class="max-h-60 overflow-y-auto space-y-1 pr-2">
+                        <!-- JS will populate this -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- === Personal Tracker Tab === -->
+        <div id="tab-content-personal" class="tab-content space-y-4">
+            <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg shadow">
+                <h3 class="text-xl font-semibold mb-3">Add New Person</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <input type="text" id="personName" class="sm:col-span-2 w-full p-2 border border-gray-300 dark:border-zinc-700 rounded-md bg-gray-50 dark:bg-zinc-900" placeholder="Name">
+                    <button id="addPersonBtn" class="sm:col-span-1 w-full bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">
+                        Add Person
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg shadow">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-xl font-semibold">Current Entries</h3>
+                    <div class="text-right">
+                        <span class="block text-sm text-gray-500 dark:text-gray-400">Total</span>
+                        <span id="personal-total" class="block text-2xl font-bold text-green-500">0.00</span>
+                    </div>
+                </div>
+                
+                <ul id="personal-list" class="max-h-80 overflow-y-auto space-y-2">
+                    <!-- JS will populate this -->
+                    <li id="empty-personal-list" class="text-center text-gray-500 dark:text-gray-400 py-4">No entries added yet.</li>
+                </ul>
+
+                <button id="reset-btn" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition-colors duration-200">
+                    Reset All Data
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- === Modals === -->
+    
+    <!-- Generic Alert Modal -->
+    <div id="alert-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold mb-4 text-yellow-400">Alert</h3>
+            <p id="alert-message" class="mb-6"></p>
+            <button id="alert-ok" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">
+                OK
+            </button>
+        </div>
+    </div>
+    
+    <!-- Reset Confirmation 1 -->
+    <div id="reset-modal-1" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold mb-4 text-red-500">Are you sure?</h3>
+            <p class="mb-6">Do you really want to reset all personal entries? This cannot be undone.</p>
+            <div class="flex gap-4">
+                <button id="reset-cancel-1" class="w-1/2 bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">
+                    Cancel
+                </button>
+                <button id="reset-confirm-1" class="w-1/2 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">
+                    Yes, Reset
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Reset Confirmation 2 -->
+    <div id="reset-modal-2" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold mb-4 text-red-500">Final Confirmation</h3>
+            <p class="mb-6">This is your final warning. All personal tracking data will be permanently deleted.</p>
+            <div class="flex gap-4">
+                <button id="reset-cancel-2" class="w-1/2 bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">
+                    Cancel
+                </button>
+                <button id="reset-confirm-2" class="w-1/2 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">
+                    DELETE FOREVER
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // === App State ===
+        const state = {
+            personalEntries: [],
+            apiKey: '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' // Your OpenRouter Key
+        };
+
+        // === DOM Elements ===
+        const tabBtnWa = document.getElementById('tab-btn-wa');
+        const tabBtnPersonal = document.getElementById('tab-btn-personal');
+        const tabContentWa = document.getElementById('tab-content-wa');
+        const tabContentPersonal = document.getElementById('tab-content-personal');
+        
+        // WA Calculator
+        const apiKeyInput = document.getElementById('apiKey');
+        const saveApiKeyBtn = document.getElementById('saveApiKey');
+        const chatInput = document.getElementById('chatInput');
+        const processChatBtn = document.getElementById('processChat');
+        const waResults = document.getElementById('wa-results');
+        const loader = document.getElementById('loader');
+        const resultsContent = document.getElementById('results-content');
+        const totalAmountEl = document.getElementById('total-amount');
+        const totalPeopleEl = document.getElementById('total-people');
+        const peopleListEl = document.getElementById('people-list');
+
+        // Personal Tracker
+        const personNameInput = document.getElementById('personName');
+        const addPersonBtn = document.getElementById('addPersonBtn');
+        const personalListEl = document.getElementById('personal-list');
+        const emptyPersonalListEl = document.getElementById('empty-personal-list');
+        const personalTotalEl = document.getElementById('personal-total');
+        const resetBtn = document.getElementById('reset-btn');
+
+        // Modals
+        const alertModal = document.getElementById('alert-modal');
+        const alertMessage = document.getElementById('alert-message');
+        const alertOkBtn = document.getElementById('alert-ok');
+        const resetModal1 = document.getElementById('reset-modal-1');
+        const resetCancel1 = document.getElementById('reset-cancel-1');
+        const resetConfirm1 = document.getElementById('reset-confirm-1');
+        const resetModal2 = document.getElementById('reset-modal-2');
+        const resetCancel2 = document.getElementById('reset-cancel-2');
+        const resetConfirm2 = document.getElementById('reset-confirm-2');
+
+        // === Utility Functions ===
+        const showAlert = (message) => {
+            alertMessage.textContent = message;
+            alertModal.classList.add('show');
+        };
+
+        const hideAlert = () => {
+            alertModal.classList.remove('show');
+        };
+        
+        const showModal = (modal) => modal.classList.add('show');
+        const hideModal = (modal) => modal.classList.remove('show');
+
+        // Exponential backoff for API calls
+        const fetchWithBackoff = async (url, options, retries = 3, delay = 1000) => {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    if (response.status === 429 && retries > 0) {
+                        // Throttled, wait and retry
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                    }
+                    // Try to parse error message from API
+                    const errorData = await response.json().catch(() => null);
+                    const errorMsg = errorData?.error?.message || `HTTP error! status: ${response.status}`;
+                    throw new Error(errorMsg);
+                }
+                return response.json();
+            } catch (error) {
+                if (retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                }
+                throw error; // Re-throw error after retries are exhausted
+            }
+        };
+
+        // === Tab Switching Logic ===
+        const switchTab = (tabName) => {
+            if (tabName === 'wa') {
+                tabBtnWa.classList.add('active');
+                tabBtnPersonal.classList.remove('active');
+                tabContentWa.classList.add('active');
+                tabContentPersonal.classList.remove('active');
+            } else {
+                tabBtnWa.classList.remove('active');
+                tabBtnPersonal.classList.add('active');
+                tabContentWa.classList.remove('active');
+                tabContentPersonal.classList.add('active');
+            }
+        };
+
+        // === Personal Tracker Logic ===
+        const renderPersonalEntries = () => {
+            personalListEl.innerHTML = ''; // Clear list
+            let total = 0;
+
+            if (state.personalEntries.length === 0) {
+                personalListEl.appendChild(emptyPersonalListEl);
+            } else {
+                state.personalEntries.forEach((entry, index) => {
+                    if (entry.included) { // Only add to total if included
+                        total += entry.amount;
+                    }
+                    
+                    const li = document.createElement('li');
+                    li.className = 'bg-gray-100 dark:bg-zinc-900 p-3 rounded-md';
+                    
+                    const amountColor = entry.amount >= 0 ? 'text-green-500' : 'text-red-500';
+                    const amountPrefix = entry.amount >= 0 ? '₹' : '-₹';
+                    const amountValue = Math.abs(entry.amount).toFixed(2);
+                    
+                    li.innerHTML = `
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center space-x-3">
+                                <input type="checkbox" data-index="${index}" class="li-include-chk w-5 h-5 text-indigo-500 rounded border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 focus:ring-indigo-500 focus:ring-offset-0" ${entry.included ? 'checked' : ''}>
+                                <span class="font-medium text-lg">${entry.name}</span>
+                            </div>
+                            <span class="${amountColor} font-semibold text-lg">${amountPrefix}${amountValue}</span>
+                        </div>
+                        <div class="flex items-stretch gap-2">
+                            <input type="number" class="li-amount-input flex-grow p-2 border border-gray-300 dark:border-zinc-700 rounded-md bg-gray-50 dark:bg-zinc-800" placeholder="Amount">
+                            <button data-index="${index}" class="li-add-btn flex-shrink-0 w-16 bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded-md">+</button>
+                            <button data-index="${index}" class="li-sub-btn flex-shrink-0 w-16 bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-1 px-2 rounded-md">-</button>
+                        </div>
+                    `;
+                    personalListEl.appendChild(li);
+                });
+            }
+            personalTotalEl.textContent = `₹${total.toFixed(2)}`;
+            personalTotalEl.className = `block text-2xl font-bold ${total >= 0 ? 'text-green-500' : 'text-red-500'}`;
+        };
+
+        const savePersonalEntries = () => {
+            localStorage.setItem('personalEntries', JSON.stringify(state.personalEntries));
+        };
+
+        const loadPersonalEntries = () => {
+            const entries = localStorage.getItem('personalEntries');
+            if (entries) {
+                state.personalEntries = JSON.parse(entries);
+                // Add 'included' property if it's missing from old data
+                state.personalEntries.forEach(entry => {
+                    if (typeof entry.included === 'undefined') {
+                        entry.included = true;
+                    }
+                });
+            }
+            renderPersonalEntries();
+        };
+
+        const handleAddPerson = () => {
+            const nameFromInput = personNameInput.value.trim();
+
+            if (!nameFromInput) {
+                showAlert('Please enter a name.');
+                return;
+            }
+
+            const nameLower = nameFromInput.toLowerCase();
+            const existingEntry = state.personalEntries.find(entry => entry.name.toLowerCase() === nameLower);
+
+            if (existingEntry) {
+                showAlert('This person already exists in the list.');
+                return;
+            }
+            
+            // New entry
+            state.personalEntries.push({ name: nameFromInput, amount: 0, included: true });
+
+            savePersonalEntries();
+            renderPersonalEntries();
+
+            // Clear input
+            personNameInput.value = '';
+            personNameInput.focus();
+        };
+
+        const handlePersonalListClick = (e) => {
+            const target = e.target;
+            const index = target.dataset.index;
+
+            if (typeof index === 'undefined') return; // Clicked something else
+
+            const li = target.closest('li');
+            if (!li) return;
+
+            const entry = state.personalEntries[index];
+            if (!entry) return;
+
+            // Handle Checkbox Toggle
+            if (target.classList.contains('li-include-chk')) {
+                entry.included = target.checked;
+                savePersonalEntries();
+                renderPersonalEntries(); // Re-render to update total
+                return;
+            }
+
+            // Handle Add/Subtract
+            const amountInput = li.querySelector('.li-amount-input');
+            if (!amountInput) return;
+
+            const amount = parseFloat(amountInput.value);
+
+            if (isNaN(amount) || amount <= 0) {
+                showAlert('Please enter a positive amount to add or subtract.');
+                amountInput.value = '';
+                amountInput.focus();
+                return;
+            }
+
+            if (target.classList.contains('li-add-btn')) {
+                entry.amount += amount;
+            } else if (target.classList.contains('li-sub-btn')) {
+                entry.amount -= amount;
+            } else {
+                return; // Not an add or sub button
+            }
+            
+            savePersonalEntries();
+            renderPersonalEntries();
+            
+            // After re-rendering, focus the equivalent input for quick re-entry
+            const newList = document.getElementById('personal-list');
+            const newLi = newList.querySelector(`button[data-index="${index}"]`)?.closest('li');
+            if (newLi) {
+                const newAmountInput = newLi.querySelector('.li-amount-input');
+                if (newAmountInput) {
+                    newAmountInput.value = ''; // Clear the input after successful add/sub
+                    newAmountInput.focus();
+                }
+            }
+        };
+
+        const handleReset = () => {
+            state.personalEntries = [];
+            savePersonalEntries();
+            renderPersonalEntries();
+            hideModal(resetModal2);
+        };
+        
+        // === WhatsApp Calculator Logic ===
+        const loadApiKey = () => {
+            const key = localStorage.getItem('apiKey');
+            if (key) {
+                state.apiKey = key;
+            }
+            // Set input value regardless, using stored key or new default
+            apiKeyInput.value = state.apiKey;
+        };
+
+        const handleSaveApiKey = () => {
+            const key = apiKeyInput.value.trim();
+            if (key) {
+                state.apiKey = key;
+                localStorage.setItem('apiKey', key);
+                showAlert('API Key saved!');
+            } else {
+                showAlert('Please enter a valid API Key.');
+            }
+        };
+
+        const handleProcessChat = async () => {
+            const chatText = chatInput.value.trim();
+            if (!state.apiKey) {
+                showAlert('Please save your API Key first.');
+                switchTab('wa'); // Switch to WA tab if not already there
+                apiKeyInput.focus();
+                return;
+            }
+            if (!chatText) {
+                showAlert('Please paste your chat text first.');
+                return;
+            }
+
+            // Show loader and hide old results
+            waResults.classList.remove('hidden');
+            loader.classList.remove('hidden');
+            resultsContent.classList.add('hidden');
+
+            // Define the system prompt for OpenRouter
+            const systemPrompt = `You are a data extraction bot. Your ONLY task is to analyze the following WhatsApp chat and extract transactions.
+            A transaction is any message indicating a payment (e.g., 'sent 50', 'paid 100', '500 rs', 'gpay 20', 'phonepe 30').
+            You MUST return ONLY a valid JSON object. Do not add any text before or after the JSON.
+            The JSON object must match this exact schema:
+            {
+              "transactions": [
+                { "name": "string", "amount": number }
+              ]
+            }
+            If no transactions are found, return:
+            {
+              "transactions": []
+            }`;
+
+            const apiUrl = `https://openrouter.ai/api/v1/chat/completions`;
+            
+            const payload = {
+                model: "mistralai/mistral-7b-instruct:free",
+                messages: [
+                    { "role": "system", "content": systemPrompt },
+                    { "role": "user", "content": chatText }
+                ],
+                response_format: { "type": "json_object" }
+            };
+
+            try {
+                const result = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${state.apiKey}`,
+                        'HTTP-Referer': 'https://app-toolkit.com', // Placeholder site URL
+                        'X-Title': 'App Toolkit Calculator' // Placeholder site name
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content) {
+                    const jsonText = result.choices[0].message.content;
+                    const data = JSON.parse(jsonText);
+                    
+                    if (data.transactions) {
+                        displayWaResults(data.transactions);
+                    } else {
+                        console.error("Parsed JSON does not contain 'transactions' key:", data);
+                        showAlert('Could not parse chat. The API returned valid JSON but with the wrong structure.');
+                    }
+                } else if (result.error) {
+                    console.error("API Error:", result.error.message);
+                    showAlert(`API Error: ${result.error.message}`);
+                } else {
+                    console.error("No valid choices in API response:", result);
+                    showAlert('Could not parse chat. The API returned an unexpected response.');
+                }
+
+            } catch (error) {
+                console.error('Error processing chat:', error);
+                showAlert(`An error occurred: ${error.message}. Check your API key and network connection.`);
+            } finally {
+                // Hide loader and show results
+                loader.classList.add('hidden');
+                resultsContent.classList.remove('hidden');
+            }
+        };
+
+        const displayWaResults = (transactions) => {
+            if (!transactions || transactions.length === 0) {
+                showAlert('No transactions were found in the chat text.');
+                waResults.classList.add('hidden'); // Hide the results block again
+                return;
+            }
+
+            let totalAmount = 0;
+            const people = {};
+
+            transactions.forEach(tx => {
+                const amount = Number(tx.amount);
+                if (isNaN(amount)) return;
+
+                totalAmount += amount;
+                people[tx.name] = (people[tx.name] || 0) + amount;
+            });
+
+            totalAmountEl.textContent = `₹${totalAmount.toFixed(2)}`;
+            totalPeopleEl.textContent = Object.keys(people).length;
+
+            peopleListEl.innerHTML = ''; // Clear list
+            // Sort people by amount, descending
+            const sortedPeople = Object.entries(people).sort(([, a], [, b]) => b - a);
+
+            sortedPeople.forEach(([name, amount]) => {
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center bg-gray-100 dark:bg-zinc-900 p-2 rounded-md text-sm';
+                li.innerHTML = `
+                    <span class="font-medium truncate pr-2">${name}</span>
+                    <span class="font-semibold text-green-500 whitespace-nowrap">₹${amount.toFixed(2)}</span>
+                `;
+                peopleListEl.appendChild(li);
+            });
+        };
+
+
+        // === Event Listeners ===
+        window.addEventListener('load', () => {
+            loadApiKey();
+            loadPersonalEntries();
+        });
+
+        // Tabs
+        tabBtnWa.addEventListener('click', () => switchTab('wa'));
+        tabBtnPersonal.addEventListener('click', () => switchTab('personal'));
+
+        // Modals
+        alertOkBtn.addEventListener('click', hideAlert);
+
+        resetBtn.addEventListener('click', () => showModal(resetModal1));
+        resetCancel1.addEventListener('click', () => hideModal(resetModal1));
+        resetConfirm1.addEventListener('click', () => {
+            hideModal(resetModal1);
+            showModal(resetModal2);
+        });
+        resetCancel2.addEventListener('click', () => hideModal(resetModal2));
+        resetConfirm2.addEventListener('click', handleReset);
+
+        // WA Calculator
+        saveApiKeyBtn.addEventListener('click', handleSaveApiKey);
+        processChatBtn.addEventListener('click', handleProcessChat);
+
+        // Personal Tracker
+        addPersonBtn.addEventListener('click', handleAddPerson);
+        personNameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleAddPerson();
+        });
+        personalListEl.addEventListener('click', handlePersonalListClick);
+
+    </script>
+</body>
+</html>
+
+
+
+
